@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Formatter</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Dataset Formatter</h1>
+        
+        <!-- File Upload Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Upload Dataset</h2>
+            <div class="flex items-center space-x-4">
+                <input type="file" id="fileInput" accept=".csv" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" 
+                        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                    Choose CSV File
+                </button>
+                <span id="fileName" class="text-gray-600"></span>
+            </div>
+            <div id="uploadStatus" class="mt-2 text-sm"></div>
+        </div>
+
+        <!-- Dataset Processing Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Process Dataset</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Dataset Name</label>
+                    <input type="text" id="datasetName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Processing Instructions</label>
+                    <textarea id="userMessage" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                              placeholder="Enter your instructions for processing the dataset..."></textarea>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="processDataset()" 
+                            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">
+                        Process Dataset
+                    </button>
+                    <button onclick="downloadDataset()" 
+                            class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition">
+                        Download Processed Dataset
+                    </button>
+                </div>
+            </div>
+            <div id="processStatus" class="mt-4 text-sm"></div>
+        </div>
+
+        <!-- Dataset Preview Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Original Dataset Preview -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-semibold mb-4">Original Dataset Preview</h2>
+                <div class="overflow-x-auto">
+                    <table id="originalPreview" class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr id="originalHeaders"></tr>
+                        </thead>
+                        <tbody id="originalBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Processed Dataset Preview -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-semibold mb-4">Processed Dataset Preview</h2>
+                <div class="overflow-x-auto">
+                    <table id="processedPreview" class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr id="processedHeaders"></tr>
+                        </thead>
+                        <tbody id="processedBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFileName = '';
+        let originalData = null;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                currentFileName = file.name;
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('datasetName').value = file.name.replace('.csv', '');
+                uploadFile(file);
+            }
+        });
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                document.getElementById('uploadStatus').textContent = data.message;
+                document.getElementById('uploadStatus').className = 'mt-2 text-sm text-green-600';
+                
+                // Read and display the CSV file
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const csv = e.target.result;
+                    originalData = parseCSV(csv);
+                    displayData(originalData, 'original');
+                };
+                reader.readAsText(file);
+            } catch (error) {
+                document.getElementById('uploadStatus').textContent = 'Error uploading file';
+                document.getElementById('uploadStatus').className = 'mt-2 text-sm text-red-600';
+            }
+        }
+
+        function parseCSV(csv) {
+            const lines = csv.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const rows = lines.slice(1).map(line => {
+                return line.split(',').map(cell => cell.trim());
+            });
+            return { headers, rows };
+        }
+
+        function displayData(data, type) {
+            const headers = data.headers;
+            const rows = data.rows.slice(0, 5); // Show only first 5 rows
+            
+            // Display headers
+            const headerRow = document.getElementById(`${type}Headers`);
+            headerRow.innerHTML = headers.map(h => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${h}</th>`).join('');
+            
+            // Display rows
+            const body = document.getElementById(`${type}Body`);
+            body.innerHTML = rows.map(row => `
+                <tr>
+                    ${row.map(cell => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${cell}</td>`).join('')}
+                </tr>
+            `).join('');
+        }
+
+        async function processDataset() {
+            const datasetName = document.getElementById('datasetName').value + ".csv";
+            const userMessage = document.getElementById('userMessage').value;
+
+            if (!datasetName || !userMessage) {
+                document.getElementById('processStatus').textContent = 'Please fill in all fields';
+                document.getElementById('processStatus').className = 'mt-4 text-sm text-red-600';
+                return;
+            }
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dataset: datasetName,
+                        message: userMessage
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('processStatus').textContent = data.message;
+                document.getElementById('processStatus').className = 'mt-4 text-sm text-green-600';
+                
+                // Fetch and display the processed data
+                const processedResponse = await fetch(`/preview/${datasetName}`);
+                const processedData = await processedResponse.json();
+                displayData(processedData, 'processed');
+            } catch (error) {
+                document.getElementById('processStatus').textContent = 'Error processing dataset';
+                document.getElementById('processStatus').className = 'mt-4 text-sm text-red-600';
+            }
+        }
+
+        function downloadDataset() {
+            if (!currentFileName) {
+                alert('Please upload a file first');
+                return;
+            }
+            window.location.href = `/download/${currentFileName}`;
+        }
+    </script>
+</body>
+</html> 
