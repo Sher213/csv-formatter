@@ -8,12 +8,14 @@ import pandas as pd
 load_dotenv()
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'datasets'
+
+# Use /tmp for file storage in Vercel's serverless environment
+app.config['UPLOAD_FOLDER'] = '/tmp/datasets'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Ensure required directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs('scripts', exist_ok=True)
+os.makedirs('/tmp/scripts', exist_ok=True)
 
 @app.route('/')
 def index():
@@ -65,7 +67,7 @@ def download_file(filename):
 @app.route('/preview/<filename>')
 def preview_dataset(filename):
     try:
-        df = pd.read_csv(f"datasets/{filename}")
+        df = pd.read_csv(f"/tmp/datasets/{filename}")
         # Convert DataFrame to JSON format
         preview_data = {
             'headers': df.columns.tolist(),
@@ -75,5 +77,6 @@ def preview_dataset(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 404
 
+# For local development
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False) 
